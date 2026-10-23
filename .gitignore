@@ -1,0 +1,41 @@
+# Binaries and compiled classes
+client/bin/
+*.class
+*.o
+server/server
+server/server.exe
+server/test_storage
+server/test_storage.exe
+
+# Local runtime data & storage
+store/
+test_store/
+server/store/
+server/test_store/
+restored_files/
+restored_output/
+client/restored_output/
+sync_test_workspace/
+test_workspace/
+client/sync_test_workspace/
+playwright_test_results/
+
+# SQLite databases & logs
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.log
+*.pid
+.server.pid
+.dashboard.pid
+
+# Large test files
+*.bin
+
+# IDE and OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Backup &amp; Recovery Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #080c14;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-card: rgba(30, 41, 59, 0.45);
+            --bg-card-hover: rgba(30, 41, 59, 0.7);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(99, 102, 241, 0.3);
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.35);
+            --cyan: #06b6d4;
+            --emerald: #10b981;
+            --amber: #f59e0b;
+            --rose: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 25px var(--primary-glow);
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 0.4rem 0.9rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* Watcher Badge */
+        .watcher-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .watcher-badge.enabled {
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #34d399;
+        }
+
+        .watcher-badge.disabled {
+            background: rgba(100, 116, 139, 0.12);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            color: var(--text-muted);
+        }
+
+        .watcher-badge:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .pulse-dot.active {
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .pulse-dot.inactive {
+            background-color: var(--text-dim);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.25rem;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            outline: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #ffffff;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+            background: linear-gradient(135deg, #4338ca, #4f46e5);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            backdrop-filter: blur(12px);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-highlight);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.75rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #ffffff;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-sub {
+            font-size: 0.8rem;
+            color: var(--emerald);
+            font-weight: 500;
+        }
+
+        /* Main Section */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Table Card */
+        .table-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+            margin-bottom: 2.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        thead {
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        th {
+            padding: 1rem 1.25rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1.1rem 1.25rem;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover td {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        tbody tr.selected td {
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        tbody tr.selected {
+            border-left: 3px solid var(--primary);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .badge-version {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .badge-synced {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--cyan);
+        }
+
+        /* ─── Version Timeline Panel ──────────────────────────────── */
+        .timeline-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 1.75rem;
+            margin-bottom: 2.5rem;
+            transition: border-color 0.3s;
+        }
+
+        .timeline-panel.has-data {
+            border-color: var(--border-highlight);
+        }
+
+        .timeline-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-empty {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .timeline-empty .hint-icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.6rem;
+        }
+
+        /* Timeline track */
+        .timeline-track {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .timeline-track::-webkit-scrollbar {
+            height: 5px;
+        }
+
+        .timeline-track::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.04);
+            border-radius: 3px;
+        }
+
+        .timeline-track::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 3px;
+        }
+
+        .timeline-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .timeline-connector {
+            display: flex;
+            align-items: center;
+            width: 60px;
+            height: 32px;
+            flex-shrink: 0;
+            margin-top: 15px; /* align with dot row */
+        }
+
+        .connector-line {
+            flex: 1;
+            height: 2px;
+            background: linear-gradient(to right, var(--primary), rgba(99,102,241,0.4));
+        }
+
+        .timeline-dot-row {
+            display: flex;
+            align-items: center;
+            height: 32px;
+            margin-bottom: 0.75rem;
+        }
+
+        .timeline-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            background: var(--bg-base);
+            box-shadow: 0 0 8px var(--primary-glow);
+            flex-shrink: 0;
+        }
+
+        .timeline-dot.latest {
+            background: var(--emerald);
+            border-color: var(--emerald);
+            box-shadow: 0 0 10px rgba(16,185,129,0.5);
+        }
+
+        .version-card {
+            width: 165px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+            position: relative;
+        }
+
+        .version-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(99,102,241,0.2);
+            background: rgba(30, 41, 59, 0.7);
+        }
+
+        .version-badge-label {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.55rem;
+            border-radius: 5px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.6rem;
+        }
+
+        .version-badge-label.v-first {
+            background: rgba(6, 182, 212, 0.15);
+            color: #22d3ee;
+            border: 1px solid rgba(6,182,212,0.3);
+        }
+
+        .version-badge-label.v-latest {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.3);
+        }
+
+        .version-badge-label.v-mid {
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+            border: 1px solid rgba(139,92,246,0.3);
+        }
+
+        .current-tag {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: var(--emerald);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .version-card .vc-size {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.2rem;
+        }
+
+        .version-card .vc-chunks {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .version-card .vc-hash {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--cyan);
+            margin-bottom: 0.75rem;
+            word-break: break-all;
+        }
+
+        .diff-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            margin-bottom: 0.6rem;
+        }
+
+        .diff-badge.changed {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.3);
+        }
+
+        .diff-badge.unchanged {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16,185,129,0.25);
+        }
+
+        .diff-badge.first {
+            background: rgba(99,102,241,0.12);
+            color: #818cf8;
+            border: 1px solid rgba(99,102,241,0.25);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal {
+            background: #0f172a;
+            border: 1px solid var(--border-highlight);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 650px;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px var(--primary-glow);
+            transform: scale(0.95);
+            transition: transform 0.2s ease;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        /* Chunk Visualization Map */
+        .chunk-map {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px;
+            border: 1px solid var(--border-subtle);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .chunk-block {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            background: var(--primary);
+            transition: transform 0.15s, opacity 0.15s;
+            cursor: pointer;
+        }
+
+        .chunk-block:hover {
+            transform: scale(1.4);
+            opacity: 0.9;
+        }
+
+        /* Progress bar */
+        .progress-bar-track {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.4rem;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 9999px;
+            background: linear-gradient(to right, var(--primary), var(--cyan));
+            transition: width 0.5s ease;
+        }
+
+        /* Detail rows in version modal */
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 0.88rem;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .detail-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: var(--text-main);
+            text-align: right;
+            word-break: break-all;
+            max-width: 60%;
+        }
+
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: #1e293b;
+            border-left: 4px solid var(--emerald);
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            z-index: 2000;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            max-width: 420px;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Skeleton shimmer */
+        @keyframes shimmer {
+            0% { background-position: -700px 0; }
+            100% { background-position: 700px 0; }
+        }
+
+        .loading-shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+            background-size: 700px 100%;
+            animation: shimmer 1.6s infinite;
+            border-radius: 6px;
+            height: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-area">
+                <div class="logo-icon">▲</div>
+                <div>
+                    <h1>Distributed Backup &amp; Recovery Engine</h1>
+                    <div class="subtitle">Content-Addressed Storage • Block Deduplication • POSIX C Backend</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <!-- Auto-Sync Watcher Badge -->
+                <div class="watcher-badge disabled" id="watcher-status-badge" onclick="toggleWatcher()" title="Click to enable/disable auto-sync watcher">
+                    <span class="pulse-dot inactive" id="watcher-dot"></span>
+                    <span id="watcher-label">Auto-Sync: Loading...</span>
+                </div>
+                <div class="status-pill" id="server-status">
+                    <div class="status-dot"></div>
+                    <span>C Backend: CONNECTED (Port 9876)</span>
+                </div>
+                <button class="btn btn-secondary" id="btn-refresh" onclick="loadDashboardData()">Refresh</button>
+                <button class="btn btn-primary" id="btn-sync" onclick="triggerSync()">Sync Workspace</button>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Tracked Files</span>
+                    <span class="mono">SQLite</span>
+                </div>
+                <div class="stat-value" id="stat-files">0</div>
+                <div class="stat-sub" id="stat-total-bytes">0 MB in total size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Unique Chunks</span>
+                    <span class="mono">SHA-256</span>
+                </div>
+                <div class="stat-value" id="stat-unique-chunks">0</div>
+                <div class="stat-sub" id="stat-total-refs">0 chunk references</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Deduplication Ratio</span>
+                    <span class="mono">Consolidation</span>
+                </div>
+                <div class="stat-value" id="stat-dedup-ratio">0.0%</div>
+                <div class="stat-sub">Redundant network I/O eliminated</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Storage Efficiency</span>
+                    <span class="mono">Immutable</span>
+                </div>
+                <div class="stat-value" id="stat-bandwidth-saved">0 MB</div>
+                <div class="stat-sub">Physical disk space saved</div>
+            </div>
+        </section>
+
+        <!-- File Snapshots Table -->
+        <section>
+            <div class="section-header">
+                <h2 class="section-title">Tracked Snapshots &amp; Version History</h2>
+                <span class="subtitle">Incremental version manifests persisted in POSIX store • Click a row to explore timeline</span>
+            </div>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>File Path</th>
+                            <th>File ID</th>
+                            <th>Size</th>
+                            <th>Active Version</th>
+                            <th>Chunks</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="files-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2.5rem;">
+                                Loading repository state...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             Version History Timeline Panel
+             ═══════════════════════════════════════════════════════════ -->
+        <section>
+            <div class="timeline-panel" id="timeline-panel">
+                <div class="timeline-panel-header">
+                    <h2 class="section-title">📜 Version History Timeline</h2>
+                    <span class="subtitle" id="timeline-file-label">Select a file above</span>
+                </div>
+                <div id="timeline-content">
+                    <div class="timeline-empty">
+                        <span class="hint-icon">🗂</span>
+                        No file selected — click a row in the Files table above to explore its version history.
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div><!-- /.container -->
+
+    <!-- ─── Restore Modal ──────────────────────────────────────────── -->
+    <div class="modal-overlay" id="restore-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Restore File Revision</h3>
+                <button class="close-btn" onclick="closeRestoreModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>File Path</label>
+                <input type="text" id="modal-file-path" readonly>
+                <input type="hidden" id="modal-file-id">
+            </div>
+            <div class="form-group">
+                <label>Target Version</label>
+                <select id="modal-version-select">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Restore Output Directory</label>
+                <input type="text" id="modal-target-dir" value="./restored_files">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+                <button class="btn btn-primary" id="btn-execute-restore" onclick="executeRestore()">Download &amp; Reconstruct</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Chunk Viewer Modal ─────────────────────────────────────── -->
+    <div class="modal-overlay" id="chunk-modal">
+        <div class="modal" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="chunk-modal-title">Chunk Allocation Map</h3>
+                <button class="close-btn" onclick="closeChunkModal()">&times;</button>
+            </div>
+            <div style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);" id="chunk-modal-info"></div>
+            <div class="chunk-map" id="chunk-map-container">
+                <!-- Color-coded blocks -->
+            </div>
+            <div style="margin-top: 1.5rem; max-height: 200px; overflow-y: auto; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;" id="chunk-details-list">
+            </div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="closeChunkModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Version Detail Modal ───────────────────────────────────── -->
+    <div class="modal-overlay" id="version-detail-modal">
+        <div class="modal" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="vd-modal-title">Version Details</h3>
+                <button class="close-btn" onclick="closeVersionDetailModal()">&times;</button>
+            </div>
+            <div id="vd-modal-body"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="closeVersionDetailModal()">Close</button>
+                <button class="btn btn-primary" id="vd-restore-btn">Restore This Version</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Toast Notification ─────────────────────────────────────── -->
+    <div class="toast" id="toast-notify">
+        <span id="toast-msg">Operation completed successfully</span>
+    </div>
+
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        //  State
+        // ════════════════════════════════════════════════════════════════
+        let selectedFileId = null;
+        let selectedFilePath = null;
+        let selectedFileMaxVersion = 1;
+        let watcherEnabled = false;
+
+        // ════════════════════════════════════════════════════════════════
+        //  Dashboard load
+        // ════════════════════════════════════════════════════════════════
+        async function loadDashboardData() {
+            try {
+                const [statsRes, filesRes] = await Promise.all([
+                    fetch('/api/stats'),
+                    fetch('/api/files')
+                ]);
+
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    document.getElementById('stat-files').innerText = stats.totalFiles;
+                    document.getElementById('stat-total-bytes').innerText = (stats.totalBytes / (1024*1024)).toFixed(2) + " MB tracked";
+                    document.getElementById('stat-unique-chunks').innerText = stats.uniqueChunks;
+                    document.getElementById('stat-total-refs').innerText = stats.chunkRefs + " total references";
+                    document.getElementById('stat-dedup-ratio').innerText = stats.dedupRatio.toFixed(1) + "%";
+                    document.getElementById('stat-bandwidth-saved').innerText = (stats.savedBytes / (1024*1024)).toFixed(2) + " MB";
+                }
+
+                if (filesRes.ok) {
+                    const files = await filesRes.json();
+                    const tbody = document.getElementById('files-table-body');
+                    if (files.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No tracked files found. Click "Sync Workspace" to scan.</td></tr>`;
+                        return;
+                    }
+
+                    tbody.innerHTML = files.map(f => `
+                        <tr data-file-id="${esc(f.fileId)}" data-file-path="${esc(f.relativePath)}" data-max-version="${f.version}"
+                            onclick="selectFileRow(this, '${esc(f.fileId)}', '${esc(f.relativePath)}', ${f.version})">
+                            <td style="font-weight: 600;">${f.relativePath}</td>
+                            <td><span class="mono">${f.fileId}</span></td>
+                            <td>${(f.fileSize / 1024).toFixed(1)} KB</td>
+                            <td><span class="badge badge-version">v${f.version}</span></td>
+                            <td>${f.chunkCount} blocks</td>
+                            <td><span class="badge badge-synced">${f.syncStatus}</span></td>
+                            <td onclick="event.stopPropagation()">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-secondary btn-sm" onclick="viewChunks('${esc(f.fileId)}', '${esc(f.relativePath)}', ${f.version})">Inspect</button>
+                                    <button class="btn btn-primary btn-sm" onclick="openRestoreModal('${esc(f.fileId)}', '${esc(f.relativePath)}', ${f.version})">Restore</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    // Re-select previously selected row if still present
+                    if (selectedFileId) {
+                        const row = document.querySelector(`tr[data-file-id="${selectedFileId}"]`);
+                        if (row) row.classList.add('selected');
+                    }
+                }
+            } catch (err) {
+                console.error("Dashboard refresh error:", err);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Row selection → Version Timeline
+        // ════════════════════════════════════════════════════════════════
+        function selectFileRow(rowEl, fileId, filePath, maxVersion) {
+            // Deselect previous
+            document.querySelectorAll('#files-table-body tr.selected').forEach(r => r.classList.remove('selected'));
+            rowEl.classList.add('selected');
+
+            selectedFileId = fileId;
+            selectedFilePath = filePath;
+            selectedFileMaxVersion = maxVersion;
+
+            loadVersionTimeline(fileId, filePath);
+        }
+
+        async function loadVersionTimeline(fileId, filePath) {
+            const panel = document.getElementById('timeline-panel');
+            const content = document.getElementById('timeline-content');
+            const label = document.getElementById('timeline-file-label');
+
+            label.textContent = filePath;
+            panel.classList.add('has-data');
+
+            // Show shimmer while loading
+            content.innerHTML = `
+                <div style="display:flex;gap:1.5rem;padding:0.5rem 0;">
+                    ${[1,2,3].map(() => `<div style="width:165px;flex-shrink:0;"><div class="loading-shimmer" style="height:130px;border-radius:12px;"></div></div>`).join('')}
+                </div>`;
+
+            try {
+                const res = await fetch(`/api/versions?fileId=${encodeURIComponent(fileId)}`);
+                if (!res.ok) throw new Error(await res.text());
+                const versions = await res.json();
+
+                if (!versions || versions.length === 0) {
+                    content.innerHTML = `<div class="timeline-empty"><span class="hint-icon">🔍</span>No version history found for this file.</div>`;
+                    return;
+                }
+
+                renderTimeline(versions, filePath);
+            } catch (e) {
+                content.innerHTML = `<div class="timeline-empty" style="color:var(--rose);">Failed to load version history: ${e.message}</div>`;
+            }
+        }
+
+        function renderTimeline(versions, filePath) {
+            const content = document.getElementById('timeline-content');
+            const totalVersions = versions.length;
+
+            // Build track HTML
+            let trackHtml = '<div class="timeline-track">';
+
+            versions.forEach((v, idx) => {
+                const isFirst = idx === 0;
+                const isLatest = idx === totalVersions - 1;
+
+                // Label class
+                let badgeClass = 'v-mid';
+                if (isFirst) badgeClass = 'v-first';
+                if (isLatest) badgeClass = 'v-latest';
+
+                // Dot class
+                const dotClass = isLatest ? 'timeline-dot latest' : 'timeline-dot';
+
+                // Diff badge vs previous version
+                let diffHtml = '';
+                if (isFirst) {
+                    diffHtml = `<div class="diff-badge first">◆ Initial snapshot</div>`;
+                } else {
+                    const prev = versions[idx - 1];
+                    const changed = v.wholeFileHash !== prev.wholeFileHash;
+                    const chunkDelta = Math.abs(v.chunkCount - prev.chunkCount);
+                    if (changed) {
+                        diffHtml = `<div class="diff-badge changed">⚡ ${chunkDelta} chunk${chunkDelta !== 1 ? 's' : ''} changed</div>`;
+                    } else {
+                        diffHtml = `<div class="diff-badge unchanged">✓ Identical</div>`;
+                    }
+                }
+
+                // Size formatting
+                const sizeMB = (v.fileSize / (1024 * 1024)).toFixed(2);
+                const sizeDisplay = v.fileSize >= 1024 * 1024
+                    ? `${sizeMB} MB`
+                    : `${(v.fileSize / 1024).toFixed(1)} KB`;
+
+                // Hash display
+                const hashShort = v.wholeFileHash ? v.wholeFileHash.substring(0, 8) + '...' : 'n/a';
+
+                // Timeline item = [connector?] + [dot-row + card]
+                if (idx > 0) {
+                    trackHtml += `
+                        <div class="timeline-connector">
+                            <div class="connector-line"></div>
+                        </div>`;
+                }
+
+                trackHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-dot-row">
+                            <div class="${dotClass}"></div>
+                        </div>
+                        <div class="version-card" onclick="openVersionDetail(${JSON.stringify(v).replace(/"/g, '&quot;')}, ${JSON.stringify(versions[idx-1] || null).replace(/"/g, '&quot;')}, ${JSON.stringify(filePath).replace(/"/g, '&quot;')})">
+                            ${isLatest ? '<div class="current-tag">Current</div>' : ''}
+                            <div class="version-badge-label ${badgeClass}">v${v.version}</div>
+                            ${diffHtml}
+                            <div class="vc-size">${sizeDisplay}</div>
+                            <div class="vc-chunks">${v.chunkCount} chunks</div>
+                            <div class="vc-hash">${hashShort}</div>
+                            <button class="btn btn-primary btn-sm" style="width:100%;justify-content:center;"
+                                onclick="event.stopPropagation(); openRestoreModal('${esc(v.fileId)}', '${esc(filePath)}', ${v.version}); document.getElementById('modal-version-select').value=${v.version};">
+                                Restore v${v.version}
+                            </button>
+                        </div>
+                    </div>`;
+            });
+
+            trackHtml += '</div>';
+            content.innerHTML = trackHtml;
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Version Detail Modal
+        // ════════════════════════════════════════════════════════════════
+        function openVersionDetail(version, prevVersion, filePath) {
+            const sizeBytes = version.fileSize;
+            const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(3);
+            const sizeDisplay = sizeBytes >= 1024 * 1024
+                ? `${sizeMB} MB (${sizeBytes.toLocaleString()} bytes)`
+                : `${(sizeBytes / 1024).toFixed(2)} KB (${sizeBytes.toLocaleString()} bytes)`;
+
+            let sharedPct = 100;
+            let prevLabel = '—';
+            if (prevVersion) {
+                const sameHash = version.wholeFileHash === prevVersion.wholeFileHash;
+                if (sameHash) {
+                    sharedPct = 100;
+                } else {
+                    // Approximate: chunks not changed ~ min(count) / max(count)
+                    const minChunks = Math.min(version.chunkCount, prevVersion.chunkCount);
+                    const maxChunks = Math.max(version.chunkCount, prevVersion.chunkCount);
+                    sharedPct = maxChunks > 0 ? Math.round((minChunks / maxChunks) * 100) : 100;
+                }
+                prevLabel = `v${prevVersion.version}`;
+            }
+
+            document.getElementById('vd-modal-title').textContent = `Version Details — ${filePath} v${version.version}`;
+
+            const body = document.getElementById('vd-modal-body');
+            body.innerHTML = `
+                <div class="detail-row">
+                    <span class="detail-label">File</span>
+                    <span class="detail-value">${filePath}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Version</span>
+                    <span class="detail-value">v${version.version}${version.version === selectedFileMaxVersion ? ' (Current)' : ''}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">File Size</span>
+                    <span class="detail-value">${sizeDisplay}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Chunk Count</span>
+                    <span class="detail-value">${version.chunkCount} chunks</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">SHA-256</span>
+                    <span class="detail-value" style="font-size:0.72rem;">${version.wholeFileHash || 'n/a'}</span>
+                </div>
+                ${prevVersion ? `
+                <div style="margin-top:1.25rem;">
+                    <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.4rem;">
+                        Chunks shared with ${prevLabel}
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" style="width:${sharedPct}%;"></div>
+                    </div>
+                    <div style="text-align:right;font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem;">${sharedPct}% shared</div>
+                </div>` : `
+                <div style="margin-top:1.25rem;font-size:0.82rem;color:var(--text-muted);">
+                    Initial snapshot — no previous version to compare.
+                </div>`}
+            `;
+
+            document.getElementById('vd-restore-btn').onclick = () => {
+                closeVersionDetailModal();
+                openRestoreModal(version.fileId, filePath, version.version);
+                document.getElementById('modal-version-select').value = version.version;
+            };
+
+            document.getElementById('version-detail-modal').classList.add('active');
+        }
+
+        function closeVersionDetailModal() {
+            document.getElementById('version-detail-modal').classList.remove('active');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Auto-Sync Watcher Badge
+        // ════════════════════════════════════════════════════════════════
+        async function fetchWatcherStatus() {
+            try {
+                const res = await fetch('/api/watcher');
+                if (!res.ok) return;
+                const data = await res.json();
+                updateWatcherBadge(data);
+            } catch (e) {
+                // silently ignore — watcher endpoint may not be live
+            }
+        }
+
+        function updateWatcherBadge(data) {
+            const badge = document.getElementById('watcher-status-badge');
+            const dot = document.getElementById('watcher-dot');
+            const label = document.getElementById('watcher-label');
+
+            watcherEnabled = data.enabled || false;
+
+            if (watcherEnabled) {
+                badge.className = 'watcher-badge enabled';
+                dot.className = 'pulse-dot active';
+                label.textContent = `Auto-Sync: ON (${data.totalEvents || 0} events)`;
+            } else {
+                badge.className = 'watcher-badge disabled';
+                dot.className = 'pulse-dot inactive';
+                label.textContent = 'Auto-Sync: OFF';
+            }
+        }
+
+        async function toggleWatcher() {
+            const action = watcherEnabled ? 'disable' : 'enable';
+            try {
+                const res = await fetch('/api/watcher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    updateWatcherBadge(data);
+                    showToast(`Auto-Sync Watcher ${action}d.`);
+                }
+            } catch (e) {
+                showToast('Watcher toggle failed: ' + e.message);
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Sync
+        // ════════════════════════════════════════════════════════════════
+        async function triggerSync() {
+            const btn = document.getElementById('btn-sync');
+            btn.innerText = "Syncing...";
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/sync', { method: 'POST' });
+                const data = await res.json();
+                showToast(`Synced ${data.filesSynced} files! Uploaded: ${data.chunksUploaded} chunks, Deduped: ${data.chunksDeduped} chunks`);
+                loadDashboardData();
+            } catch (e) {
+                showToast("Sync error: " + e.message);
+            } finally {
+                btn.innerText = "Sync Workspace";
+                btn.disabled = false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Restore Modal
+        // ════════════════════════════════════════════════════════════════
+        function openRestoreModal(fileId, path, maxVersion) {
+            document.getElementById('modal-file-id').value = fileId;
+            document.getElementById('modal-file-path').value = path;
+            const select = document.getElementById('modal-version-select');
+            select.innerHTML = '';
+            for (let v = 1; v <= maxVersion; v++) {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.innerText = `Revision v${v}` + (v === maxVersion ? " (Latest)" : "");
+                select.appendChild(opt);
+            }
+            select.value = maxVersion;
+            document.getElementById('restore-modal').classList.add('active');
+        }
+
+        function closeRestoreModal() {
+            document.getElementById('restore-modal').classList.remove('active');
+        }
+
+        async function executeRestore() {
+            const fileId = document.getElementById('modal-file-id').value;
+            const version = parseInt(document.getElementById('modal-version-select').value);
+            const targetDir = document.getElementById('modal-target-dir').value;
+            const btn = document.getElementById('btn-execute-restore');
+
+            btn.innerText = "Restoring...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileId, version, targetDir })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    closeRestoreModal();
+                    showToast(`Restored v${version} to ${result.restoredPath}! SHA-256 Checksum Verified (in ${result.durationMs}ms)`);
+                } else {
+                    showToast("Restore failed: " + result.error);
+                }
+            } catch (e) {
+                showToast("Restore failed: " + e.message);
+            } finally {
+                btn.innerText = "Download & Reconstruct";
+                btn.disabled = false;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Chunk Viewer Modal
+        // ════════════════════════════════════════════════════════════════
+        async function viewChunks(fileId, path, version) {
+            document.getElementById('chunk-modal-title').innerText = `Chunk Map: ${path} (v${version})`;
+            try {
+                const res = await fetch(`/api/manifest?fileId=${encodeURIComponent(fileId)}&version=${version}`);
+                const data = await res.json();
+
+                document.getElementById('chunk-modal-info').innerText = 
+                    `Whole-file SHA-256: ${data.wholeFileHash} | Total: ${data.chunks.length} chunks (${(data.fileSize / 1024).toFixed(1)} KB)`;
+
+                const mapContainer = document.getElementById('chunk-map-container');
+                mapContainer.innerHTML = data.chunks.map((c, i) => {
+                    const hue = parseInt(c.hash.substring(0, 4), 16) % 360;
+                    return `<div class="chunk-block" style="background: hsl(${hue}, 70%, 55%);" title="Chunk #${i}: ${c.hash.substring(0, 16)}... (${c.length} B)"></div>`;
+                }).join('');
+
+                const list = document.getElementById('chunk-details-list');
+                list.innerHTML = data.chunks.map((c, i) => `
+                    <div style="padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                        #${i.toString().padStart(3, '0')} | Off: ${c.offset.toString().padStart(8, ' ')} | Len: ${c.length.toString().padStart(6, ' ')} | <span style="color:var(--cyan);">${c.hash}</span>
+                    </div>
+                `).join('');
+
+                document.getElementById('chunk-modal').classList.add('active');
+            } catch (e) {
+                showToast("Failed to fetch chunk details: " + e.message);
+            }
+        }
+
+        function closeChunkModal() {
+            document.getElementById('chunk-modal').classList.remove('active');
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Toast
+        // ════════════════════════════════════════════════════════════════
+        function showToast(msg) {
+            const toast = document.getElementById('toast-notify');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4500);
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Utility
+        // ════════════════════════════════════════════════════════════════
+        function esc(str) {
+            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Init
+        // ════════════════════════════════════════════════════════════════
+        window.onload = () => {
+            loadDashboardData();
+            fetchWatcherStatus();
+            setInterval(fetchWatcherStatus, 5000);
+        };
+    </script>
+</body>
+</html>
